@@ -31,7 +31,7 @@ print("latitude: " + str(start_coordinates["lat"]) + ", longitude: " + str(start
 url = "https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=%s,%s&rankby=prominence&radius=%f&key=%s" % (str(start_coordinates["lat"]), str(start_coordinates["lng"]), half_dist, api_keys["places"])
 places_json = urllib.request.urlopen(url).read().decode('UTF-8')
 places = json.loads(places_json)
-print(places)
+#print(places)
 
 # find distance between each location (distance matrix)
 # origins and destinations are the same
@@ -42,15 +42,18 @@ for i in range(num_places):
 	print(places["results"][i]["name"] + " at (" + str(places["results"][i]["geometry"]["location"]["lat"]) + ", " + str(places["results"][i]["geometry"]["location"]["lng"]) + ") with place id " + places["results"][i]["place_id"])
 
 locations = ""
-for place in places["results"]:
+for i in range(min(9, num_places)):
+	print(i)
+	place = places["results"][i]
 	#lat = place["geometry"]["location"]["lat"]
 	#lng = place["geometry"]["location"]["lng"]
 	#locations = locations + lat + "," + lng + "|"
 	place_id = place["place_id"]
 	locations = locations + "place_id:" + place_id + "|"
-locations = locations + start_coordinates["lat"] + "," + start_coordinates["lng"]
+locations = locations + str(start_coordinates["lat"]) + "," + str(start_coordinates["lng"])
 
 url = "https://maps.googleapis.com/maps/api/distancematrix/json?units=imperial&origins=%s&destinations=%s&key=%s" % (locations, locations, api_keys["distance_matrix"])
+print(url)
 matrix_json = urllib.request.urlopen(url).read().decode('UTF-8')
 matrix = json.loads(matrix_json)
 print(matrix)
