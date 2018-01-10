@@ -27,7 +27,7 @@ content_dict = json.loads(content)
 start_coordinates = content_dict["results"][0]["geometry"]["location"]
 print("latitude: " + str(start_coordinates["lat"]) + ", longitude: " + str(start_coordinates["lng"]))
 
-# performs places request - finds all places in radius
+# performs places request - finds all places in radius (NOTABLE PLACES - add to graph of points)
 url = "https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=%s,%s&rankby=prominence&radius=%f&key=%s" % (str(start_coordinates["lat"]), str(start_coordinates["lng"]), half_dist, api_keys["places"])
 places_json = urllib.request.urlopen(url).read().decode('UTF-8')
 places = json.loads(places_json)
@@ -52,13 +52,14 @@ for i in range(min(9, num_places)):
 	locations = locations + "place_id:" + place_id + "|"
 locations = locations + str(start_coordinates["lat"]) + "," + str(start_coordinates["lng"])
 
-url = "https://maps.googleapis.com/maps/api/distancematrix/json?units=imperial&origins=%s&destinations=%s&key=%s" % (locations, locations, api_keys["distance_matrix"])
+url = "https://maps.googleapis.com/maps/api/distancematrix/json?units=imperial&origins=%s&destinations=%s&mode=walking&key=%s" % (locations, locations, api_keys["distance_matrix"])
 print(url)
 matrix_json = urllib.request.urlopen(url).read().decode('UTF-8')
 matrix = json.loads(matrix_json)
 print(matrix)
 
-
-
+# find combinations of pairs to get full distance - get intersections / multiple ways to different locations
+# get intersection in radius using OpenStreetMap? (data updated every week - need to pull and replace every week)
+# display routes on a map and give highlights - start with just back and forth trips
 
 
