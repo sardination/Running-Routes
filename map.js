@@ -8,7 +8,7 @@ Number.prototype.toDeg = function() {
 }
 
 google.maps.LatLng.prototype.destinationPoint = function(brng, dist) {
-   dist = dist / 6371;  
+   dist = dist / 6371000;  
    brng = brng.toRad();  
 
    var lat1 = this.lat().toRad(), lon1 = this.lng().toRad();
@@ -45,30 +45,19 @@ meters = function(miles) {
 
 updateMap = function() {
    startAddress = document.getElementById("address").value;
-   startCoordinates = getCoordinates(startAddress);
-   console.log(Object.keys(startCoordinates));
    runLength = document.getElementById("mileage").value;
-   updateDrawing(startCoordinates);
-}
-
-getCoordinates = function(address) {
-   var coordinates = {};
-   // https://maps.googleapis.com/maps/api/geocode/json?address=%s&key=%s" % (starting_address, api_keys["geocoding"])
+   // get coordinates
    $.get('https://maps.googleapis.com/maps/api/geocode/json', {
-      address: address,
+      address: startAddress,
       key: apiKeys["geocoding"]
    }, function(data) {
-      coordinates["lat"] = data["results"][0]["geometry"]["location"]["lat"];
-      coordinates["lng"] = data["results"][0]["geometry"]["location"]["lng"];
+      startCoordinates["lat"] = data["results"][0]["geometry"]["location"]["lat"];
+      startCoordinates["lng"] = data["results"][0]["geometry"]["location"]["lng"];
+      updateDrawing(startCoordinates);
    });
-
-   console.log(Object.keys(coordinates));
-
-   return coordinates;
 }
 
 updateDrawing = function(startCoordinates) {
-   console.log(Object.keys(startCoordinates));
    var startPoint = new google.maps.LatLng(startCoordinates["lat"], startCoordinates["lng"]);   // Circle center
    var radius = meters(runLength) / 2;
 
@@ -94,6 +83,9 @@ updateDrawing = function(startCoordinates) {
       position: startPoint,
       map: map
    });
+
+   console.log(startPoint.lat());
+   console.log(startPoint.destinationPoint(90,radius).lat());
 
    // Show marker at destination point
    new google.maps.Marker({
