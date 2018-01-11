@@ -37,6 +37,7 @@ $.getJSON("api_keys.json", function(data) {
    $.each(data, function(key, val) {
       apiKeys[key] = val;
    });
+   document.getElementById("submitButton").disabled = false;
 });
 
 meters = function(miles) {
@@ -48,8 +49,8 @@ updateMap = function() {
    runLength = document.getElementById("mileage").value;
    // get coordinates
    $.get('https://maps.googleapis.com/maps/api/geocode/json', {
-      address: startAddress,
-      key: apiKeys["geocoding"]
+      address: startAddress
+      //key: apiKeys["geocoding"] key unnecessary ??
    }, function(data) {
       startCoordinates["lat"] = data["results"][0]["geometry"]["location"]["lat"];
       startCoordinates["lng"] = data["results"][0]["geometry"]["location"]["lng"];
@@ -84,13 +85,32 @@ updateDrawing = function(startCoordinates) {
       map: map
    });
 
-   console.log(startPoint.lat());
-   console.log(startPoint.destinationPoint(90,radius).lat());
+   // pick evenly spaced points for nearest roads
+   var points = [];
+   var pointsParameter = "";
+   for (var degree = 0; degree < 360; degree += 3.6) {
+      var dest = startPoint.destinationPoint(degree, radius)
+      points.push(dest);
+      console.log(dest.lat() + "," + dest.lng());
+      pointsParameter += dest.lat() + "," + dest.lng() + "|";
+   }
+   pointsParameter = pointsParameter.substring(0, pointsParameter.length - 1);
+   console.log(pointsParameter);
+
+   $.get('https://roads.googleapis.com/v1/nearestRoads', {
+      points: pointsParameter,
+      key: apiKeys["roads"]
+   }, function(data) {
+      console.log(data);
+   });
 
    // Show marker at destination point
-   new google.maps.Marker({
-      position: startPoint.destinationPoint(90, radius),
-      icon: 'http://maps.google.com/mapfiles/ms/icons/green-dot.png',
-      map: map
-   });
+   
+   // new google.maps.Marker({
+   //    //position: startPoint.destinationPoint(90, radius),
+   //    position: points[0],
+   //    icon: 'http://maps.google.com/mapfiles/ms/icons/green-dot.png',
+   //    map: map
+   // });
+   
 }

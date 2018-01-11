@@ -62,4 +62,10 @@ print(matrix)
 # get intersection in radius using OpenStreetMap? (data updated every week - need to pull and replace every week)
 # display routes on a map and give highlights - start with just back and forth trips
 
+# roads API: 2500 free requests per day, up to 100 points per request
+#	select nearest road for 100 evenly spaced out locations on circumference
+#	use directions to cut off path at correct radius
+# directions API: 2500 free requests per day, up to 23 waypoints allowed per request
+# pick a route out and a route back in and then find a way to connect the two !
+
 
