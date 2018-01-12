@@ -135,28 +135,30 @@ updateDrawing = function(startCoordinates) {
 
       findRoutes(map, startPoint, circumferencePoints);
    });
+}
 
-   findRoutes = function(map, startPoint, circumferencePoints) {
-      var directionsDisplay = new google.maps.DirectionsRenderer;
-      var directionsService = new google.maps.DirectionsService;
-
-      directionsDisplay.setMap(map);
-
-      for (var i = 0; i < circumferencePoints.length; i++) {
-         directionsService.route({
-            origin: startPoint,
-            destination: circumferencePoints[i],
-            travelMode: "WALKING"
-         }, function(response, status) {
-            if (status == 'OK') {
-               directionsDisplay.setDirections(response);
-            } else {
-               console.log(status);
-            }
-         });
-      }
+findRoutes = function(map, startPoint, circumferencePoints) {
+   var directionsService = new google.maps.DirectionsService;
+   for (var i = 0; i < circumferencePoints.length; i++) {
+      mapRoute(map, directionsService, startPoint, circumferencePoints[i]);
    }
-   
+}
+
+mapRoute = function(map, directionsService, startPoint, destPoint) {
+   directionsService.route({
+      origin: startPoint,
+      destination: destPoint,
+      travelMode: google.maps.DirectionsTravelMode.WALKING
+   }, function(response, status) {
+      if (status == 'OK') {
+         var directionsDisplay = new google.maps.DirectionsRenderer({suppressMarkers: true});
+         directionsDisplay.setMap(map);
+         directionsDisplay.setDirections(response);
+      } else {
+         console.log(status);
+         //setTimeout(mapRoute(map, directionsService, startPoint, destPoint), 1000);
+      }
+   });
 }
 
 
