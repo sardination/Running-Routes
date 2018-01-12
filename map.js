@@ -32,6 +32,8 @@ var apiKeys = {};
 var startAddress = "";
 var startCoordinates = {};
 var runLength = 0; // miles
+// var map;
+// var circumferencePoints;
 
 $.getJSON("api_keys.json", function(data) {
    $.each(data, function(key, val) {
@@ -125,7 +127,7 @@ updateDrawing = function(startCoordinates) {
       console.log(circumferencePoints);
 
       // place points at intersecting roads on circumference
-      for (var i = 0; i < circumferencePoints.length; i++) {
+      for (var i = 0; i < circPointsNum; i++) {
          new google.maps.Marker({
             position: new google.maps.LatLng(circumferencePoints[i]["lat"], circumferencePoints[i]["lng"]),
             icon: 'http://maps.google.com/mapfiles/ms/icons/green-dot.png',
@@ -139,9 +141,22 @@ updateDrawing = function(startCoordinates) {
 
 findRoutes = function(map, startPoint, circumferencePoints) {
    var directionsService = new google.maps.DirectionsService;
-   for (var i = 0; i < circumferencePoints.length; i++) {
-      mapRoute(map, directionsService, startPoint, circumferencePoints[i]);
+   var pause = 0;
+   var iters = 1;
+
+   for (var index = 0; index < circumferencePoints.length; index += iters) {
+      mapRoutes(map, directionsService, startPoint, circumferencePoints, index, iters, pause);
+      pause += 1000; // add one second pause (only `iters` requests per second) TODO: update to retry failures
    }
+}
+
+mapRoutes = function(map, directionsService, startPoint, circumferencePoints, startIndex, iters, pause) {
+   setTimeout(function() {
+      console.log(startIndex);
+      for (var i = startIndex; i < min(startIndex + iters, circumferencePoints.length); i++) {
+         mapRoute(map, directionsService, startPoint, circumferencePoints[i]);
+      }
+   }, pause);
 }
 
 mapRoute = function(map, directionsService, startPoint, destPoint) {
@@ -156,11 +171,17 @@ mapRoute = function(map, directionsService, startPoint, destPoint) {
          directionsDisplay.setDirections(response);
       } else {
          console.log(status);
-         //setTimeout(mapRoute(map, directionsService, startPoint, destPoint), 1000);
       }
    });
 }
 
+min = function(a, b) {
+   if (a < b) {
+      return a;
+   }
+
+   return b;
+}
 
 
 
