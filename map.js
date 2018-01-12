@@ -91,21 +91,51 @@ updateDrawing = function(startCoordinates) {
    for (var degree = 0; degree < 360; degree += 3.6) {
       var dest = startPoint.destinationPoint(degree, radius)
       points.push(dest);
-      console.log(dest.lat() + "," + dest.lng());
       pointsParameter += dest.lat() + "," + dest.lng() + "|";
    }
    pointsParameter = pointsParameter.substring(0, pointsParameter.length - 1);
-   console.log(pointsParameter);
 
+   var circumferencePoints = [];
+   var circPointsNum = 0;
    $.get('https://roads.googleapis.com/v1/nearestRoads', {
       points: pointsParameter,
       key: apiKeys["roads"]
    }, function(data) {
       console.log(data);
+      for (var i = 0; i < data["snappedPoints"].length; i++) {
+         var newCircPoint = {};
+         newCircPoint["lat"] = data["snappedPoints"][i]["location"]["latitude"];
+         newCircPoint["lng"] = data["snappedPoints"][i]["location"]["longitude"];
+         circPointsNum = circumferencePoints.length;
+         if (circPointsNum > 0) {
+            if (circumferencePoints[circPointsNum - 1]["lat"] != newCircPoint["lat"] || circumferencePoints[circPointsNum - 1]["lng"] != newCircPoint["lng"]) {
+               circumferencePoints.push(newCircPoint);
+            }
+         } else {
+            circumferencePoints.push(newCircPoint);
+         }
+      }
+      circPointsNum = circumferencePoints.length;
+      if (circPointsNum > 1) {
+         if (circumferencePoints[0]["lat"] == circumferencePoints[circPointsNum - 1]["lat"] && circumferencePoints[0]["lng"] == circumferencePoints[circPointsNum - 1]["lng"]) {
+            circumferencePoints.pop();
+         }
+      }
+      console.log(circumferencePoints);
+
+      for (var i = 0; i < circumferencePoints.length; i++) {
+         new google.maps.Marker({
+            position: new google.maps.LatLng(circumferencePoints[i]["lat"], circumferencePoints[i]["lng"]),
+            icon: 'http://maps.google.com/mapfiles/ms/icons/green-dot.png',
+            map: map
+         });
+      }
    });
 
    // Show marker at destination point
    
+
+
    // new google.maps.Marker({
    //    //position: startPoint.destinationPoint(90, radius),
    //    position: points[0],
