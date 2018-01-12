@@ -32,8 +32,10 @@ var apiKeys = {};
 var startAddress = "";
 var startCoordinates = {};
 var runLength = 0; // miles
-// var map;
-// var circumferencePoints;
+
+document.getElementById("submitButton").disabled = true;
+document.getElementById("displayRoutesButton").disabled = true;
+document.getElementById("cancelDisplayRoutesButton").disabled = true;
 
 $.getJSON("api_keys.json", function(data) {
    $.each(data, function(key, val) {
@@ -104,7 +106,6 @@ updateDrawing = function(startCoordinates) {
       points: pointsParameter,
       key: apiKeys["roads"]
    }, function(data) {
-      console.log(data);
       for (var i = 0; i < data["snappedPoints"].length; i++) {
          var newCircPoint = {};
          newCircPoint["lat"] = data["snappedPoints"][i]["location"]["latitude"];
@@ -124,7 +125,6 @@ updateDrawing = function(startCoordinates) {
             circumferencePoints.pop();
          }
       }
-      console.log(circumferencePoints);
 
       // place points at intersecting roads on circumference
       for (var i = 0; i < circPointsNum; i++) {
@@ -134,12 +134,15 @@ updateDrawing = function(startCoordinates) {
             map: map
          });
       }
-
-      findRoutes(map, startPoint, circumferencePoints);
+      document.getElementById("displayRoutesButton").disabled = false;
+      $('#displayRoutesButton').on('click', function() {
+         showRoutes(map, startPoint, circumferencePoints);
+         document.getElementById("cancelDisplayRoutesButton").disabled = false;
+      });
    });
 }
 
-findRoutes = function(map, startPoint, circumferencePoints) {
+showRoutes = function(map, startPoint, circumferencePoints) {
    var directionsService = new google.maps.DirectionsService;
    var pause = 0;
    var iters = 1;
@@ -147,12 +150,12 @@ findRoutes = function(map, startPoint, circumferencePoints) {
    for (var index = 0; index < circumferencePoints.length; index += iters) {
       mapRoutes(map, directionsService, startPoint, circumferencePoints, index, iters, pause);
       pause += 1000; // add one second pause (only `iters` requests per second) TODO: update to retry failures
+      // TODO: allow breaking out of this loop
    }
 }
 
 mapRoutes = function(map, directionsService, startPoint, circumferencePoints, startIndex, iters, pause) {
    setTimeout(function() {
-      console.log(startIndex);
       for (var i = startIndex; i < min(startIndex + iters, circumferencePoints.length); i++) {
          mapRoute(map, directionsService, startPoint, circumferencePoints[i]);
       }
@@ -166,7 +169,10 @@ mapRoute = function(map, directionsService, startPoint, destPoint) {
       travelMode: google.maps.DirectionsTravelMode.WALKING
    }, function(response, status) {
       if (status == 'OK') {
-         var directionsDisplay = new google.maps.DirectionsRenderer({suppressMarkers: true});
+         var directionsDisplay = new google.maps.DirectionsRenderer({
+            suppressMarkers: true, 
+            preserveViewport: true
+         });
          directionsDisplay.setMap(map);
          directionsDisplay.setDirections(response);
       } else {
@@ -179,7 +185,6 @@ min = function(a, b) {
    if (a < b) {
       return a;
    }
-
    return b;
 }
 
