@@ -95,6 +95,7 @@ updateDrawing = function(startCoordinates) {
    }
    pointsParameter = pointsParameter.substring(0, pointsParameter.length - 1);
 
+   // find nearest roads on circumference
    var circumferencePoints = [];
    var circPointsNum = 0;
    $.get('https://roads.googleapis.com/v1/nearestRoads', {
@@ -123,6 +124,7 @@ updateDrawing = function(startCoordinates) {
       }
       console.log(circumferencePoints);
 
+      // place points at intersecting roads on circumference
       for (var i = 0; i < circumferencePoints.length; i++) {
          new google.maps.Marker({
             position: new google.maps.LatLng(circumferencePoints[i]["lat"], circumferencePoints[i]["lng"]),
@@ -130,17 +132,47 @@ updateDrawing = function(startCoordinates) {
             map: map
          });
       }
+
+      findRoutes(map, startPoint, circumferencePoints);
    });
 
-   // Show marker at destination point
-   
+   findRoutes = function(map, startPoint, circumferencePoints) {
+      var directionsDisplay = new google.maps.DirectionsRenderer;
+      var directionsService = new google.maps.DirectionsService;
 
+      directionsDisplay.setMap(map);
 
-   // new google.maps.Marker({
-   //    //position: startPoint.destinationPoint(90, radius),
-   //    position: points[0],
-   //    icon: 'http://maps.google.com/mapfiles/ms/icons/green-dot.png',
-   //    map: map
-   // });
+      for (var i = 0; i < circumferencePoints.length; i++) {
+         directionsService.route({
+            origin: startPoint,
+            destination: circumferencePoints[i],
+            travelMode: "WALKING"
+         }, function(response, status) {
+            if (status == 'OK') {
+               directionsDisplay.setDirections(response);
+            } else {
+               console.log(status);
+            }
+         });
+      }
+   }
    
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
