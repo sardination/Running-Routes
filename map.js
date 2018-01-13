@@ -8,7 +8,7 @@ Number.prototype.toDeg = function() {
 }
 
 google.maps.LatLng.prototype.destinationPoint = function(brng, dist) {
-   dist = dist / 6371000;  
+   dist = dist / 3959;  
    brng = brng.toRad();  
 
    var lat1 = this.lat().toRad(), lon1 = this.lng().toRad();
@@ -27,11 +27,32 @@ google.maps.LatLng.prototype.destinationPoint = function(brng, dist) {
 }
 
 // -------
+min = function(a, b) {
+   if (a < b) {
+      return a;
+   }
+   return b;
+}
+
+distance = function(pointA, pointB) {
+   var r = 3959;
+   var lat1 = pointA.lat().toRad();
+   var lat2 = pointB.lat().toRad();
+   var latDiff = (pointB.lat() - pointA.lat()).toRad();
+   var lngDiff = (pointB.lng() - pointA.lng()).toRad();
+
+   var a = Math.sin(latDiff/2) * Math.sin(latDiff/2) + Math.cos(lat1) * Math.cos(lat2) * Math.sin(lngDiff/2) * Math.sin(lngDiff/2);
+   var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+   return r * c;
+}
+
 // init
 var apiKeys = {};
 var startAddress = "";
 var startCoordinates = {};
 var runLength = 0; // miles
+var radius = 0;
 
 document.getElementById("submitButton").disabled = true;
 document.getElementById("displayRoutesButton").disabled = true;
@@ -46,6 +67,10 @@ $.getJSON("api_keys.json", function(data) {
 
 meters = function(miles) {
    return 1609.34 * miles;
+}
+
+miles = function(meters) {
+   return meters * 0.000621371;
 }
 
 updateMap = function() {
@@ -64,7 +89,7 @@ updateMap = function() {
 
 updateDrawing = function(startCoordinates) {
    var startPoint = new google.maps.LatLng(startCoordinates["lat"], startCoordinates["lng"]);   // Circle center
-   var radius = meters(runLength) / 2;
+   radius = runLength / 2; // in miles
 
    var mapOpt = { 
       mapTypeId: google.maps.MapTypeId.TERRAIN,
@@ -77,7 +102,7 @@ updateDrawing = function(startCoordinates) {
    // Draw the circle
    new google.maps.Circle({
       center: startPoint,
-      radius: radius,
+      radius: meters(radius),
       fillColor: '#FF0000',
       fillOpacity: 0.2,
       map: map
@@ -147,6 +172,7 @@ showRoutes = function(map, startPoint, circumferencePoints) {
    var pause = 0;
    var iters = 1;
 
+   //circumferencePoints.length
    for (var index = 0; index < circumferencePoints.length; index += iters) {
       mapRoutes(map, directionsService, startPoint, circumferencePoints, index, iters, pause);
       pause += 1000; // add one second pause (only `iters` requests per second) TODO: update to retry failures
@@ -175,18 +201,51 @@ mapRoute = function(map, directionsService, startPoint, destPoint) {
          });
          directionsDisplay.setMap(map);
          directionsDisplay.setDirections(response);
+
+         console.log(response);
+         shortenRoute(map, radius, response, function(map, finalPoint) {
+            new google.maps.Marker({
+               position: new google.maps.LatLng(finalPoint.lat(), finalPoint.lng()),
+               icon: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png',
+               map: map
+            });
+         });
       } else {
          console.log(status);
       }
    });
 }
 
-min = function(a, b) {
-   if (a < b) {
-      return a;
+shortenRoute = function(map, length, directions, callback) {
+   var travelDistance = 0;
+   var stepLength = 0;
+   var finalPoint;
+   for (var i = 0; i < directions["routes"][0]["legs"][0]["steps"].length; i++) {
+      //console.log("dist: " + directions["routes"][0]["legs"][0]["steps"][i]["distance"]);
+      stepLength = miles(directions["routes"][0]["legs"][0]["steps"][i]["distance"]["value"]);
+      if (travelDistance + stepLength > length) {
+         for (var j = 0; j < directions["routes"][0]["legs"][0]["steps"][i]["path"].length - 1; j++) {
+            travelDistance += distance(directions["routes"][0]["legs"][0]["steps"][i]["path"][j], directions["routes"][0]["legs"][0]["steps"][i]["path"][j + 1]);
+            if (travelDistance > length) {
+               finalPoint = new google.maps.LatLng(directions["routes"][0]["legs"][0]["steps"][i]["path"][j + 1].lat(), directions["routes"][0]["legs"][0]["steps"][i]["path"][j + 1].lng());
+               break;
+            }
+         }
+         break;
+      } else {
+         travelDistance += stepLength;
+         finalPoint = new google.maps.LatLng(directions["routes"][0]["legs"][0]["steps"][i]["end_point"].lat(), directions["routes"][0]["legs"][0]["steps"][i]["end_point"].lng());
+      }
    }
-   return b;
+   // directions["route"][0]["steps"]
+
+   callback(map, finalPoint);
+
+   return finalPoint;
 }
+
+
+
 
 
 

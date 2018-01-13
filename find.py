@@ -66,6 +66,7 @@ print(matrix)
 #	select nearest road for 100 evenly spaced out locations on circumference
 #	use directions to cut off path at correct radius
 # directions API: 2500 free requests per day, up to 23 waypoints allowed per request
+#	leg array index 0
 # pick a route out and a route back in and then find a way to connect the two !
 
 
