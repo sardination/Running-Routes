@@ -34,18 +34,18 @@ min = function(a, b) {
    return b;
 }
 
-distance = function(pointA, pointB) {
-   var r = 3959;
-   var lat1 = pointA.lat().toRad();
-   var lat2 = pointB.lat().toRad();
-   var latDiff = (pointB.lat() - pointA.lat()).toRad();
-   var lngDiff = (pointB.lng() - pointA.lng()).toRad();
+// distance = function(pointA, pointB) {
+//    var r = 3959;
+//    var lat1 = pointA.lat().toRad();
+//    var lat2 = pointB.lat().toRad();
+//    var latDiff = (pointB.lat() - pointA.lat()).toRad();
+//    var lngDiff = (pointB.lng() - pointA.lng()).toRad();
 
-   var a = Math.sin(latDiff/2) * Math.sin(latDiff/2) + Math.cos(lat1) * Math.cos(lat2) * Math.sin(lngDiff/2) * Math.sin(lngDiff/2);
-   var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+//    var a = Math.sin(latDiff/2) * Math.sin(latDiff/2) + Math.cos(lat1) * Math.cos(lat2) * Math.sin(lngDiff/2) * Math.sin(lngDiff/2);
+//    var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 
-   return r * c;
-}
+//    return r * c;
+// }
 
 // init
 var apiKeys = {};
@@ -94,19 +94,19 @@ updateDrawing = function(startCoordinates) {
    var mapOpt = { 
       mapTypeId: google.maps.MapTypeId.TERRAIN,
       center: startPoint,
-      zoom: 10 // adjust zoom based on size of circle
+      zoom: 10 //Math.round(100 / runLength) // adjust zoom based on size of circle
    };
 
    var map = new google.maps.Map(document.getElementById("map"), mapOpt);
 
    // Draw the circle
-   new google.maps.Circle({
-      center: startPoint,
-      radius: meters(radius),
-      fillColor: '#FF0000',
-      fillOpacity: 0.2,
-      map: map
-   });
+   // new google.maps.Circle({
+   //    center: startPoint,
+   //    radius: meters(radius),
+   //    fillColor: '#FF0000',
+   //    fillOpacity: 0.2,
+   //    map: map
+   // });
 
    // Show marker at circle center
    new google.maps.Marker({
@@ -152,13 +152,13 @@ updateDrawing = function(startCoordinates) {
       }
 
       // place points at intersecting roads on circumference
-      for (var i = 0; i < circPointsNum; i++) {
-         new google.maps.Marker({
-            position: new google.maps.LatLng(circumferencePoints[i]["lat"], circumferencePoints[i]["lng"]),
-            icon: 'http://maps.google.com/mapfiles/ms/icons/green-dot.png',
-            map: map
-         });
-      }
+      // for (var i = 0; i < circPointsNum; i++) {
+      //    new google.maps.Marker({
+      //       position: new google.maps.LatLng(circumferencePoints[i]["lat"], circumferencePoints[i]["lng"]),
+      //       icon: 'http://maps.google.com/mapfiles/ms/icons/green-dot.png',
+      //       map: map
+      //    });
+      // }
       document.getElementById("displayRoutesButton").disabled = false;
       $('#displayRoutesButton').on('click', function() {
          showRoutes(map, startPoint, circumferencePoints);
@@ -200,15 +200,53 @@ mapRoute = function(map, directionsService, startPoint, destPoint) {
             preserveViewport: true
          });
          directionsDisplay.setMap(map);
-         directionsDisplay.setDirections(response);
+         //directionsDisplay.setDirections(response);
 
-         console.log(response);
-         shortenRoute(map, radius, response, function(map, finalPoint) {
-            new google.maps.Marker({
-               position: new google.maps.LatLng(finalPoint.lat(), finalPoint.lng()),
-               icon: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png',
-               map: map
-            });
+         shortenRoute(map, directionsDisplay, radius, response, function(map, directionsDisplay, adjustedInfo) {
+            var finalPoints = adjustedInfo["finalPoints"];
+            var newSteps = adjustedInfo["newSteps"];
+            var newDistances = adjustedInfo["newDistances"];
+            var newPaths = adjustedInfo["newPaths"];
+            for (var i = 0; i < finalPoints.length; i++) { // if there are multiple routes to the same location
+               new google.maps.Marker({
+                  position: new google.maps.LatLng(finalPoints[i].lat(), finalPoints[i].lng()),
+                  icon: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png',
+                  map: map
+               });
+               
+               drawRoute(directionsDisplay, finalPoints[i], newSteps[i], newDistances[i], newPaths[i], response, i);
+            }
+
+            //var newResponse;
+
+            // $.get('https://maps.googleapis.com/maps/api/geocode/json', {
+            //    latlng: finalPoint.lat() + "," + finalPoint.lng()
+            //    //key: apiKeys["geocoding"] key unnecessary ??
+            // }, function(data) {
+            //    console.log(data);
+            //    var waypoints = response["geocoded_waypoints"];
+            //    waypoints[1] = new google.maps.DirectionsGeocodedWaypoint({
+            //       place_id: data["results"][0]["place_id"],
+            //       types: data["results"][0]["types"]
+            //    });
+
+            //    for (var i = 0; i < response["routes"].length; i++) {
+            //       var currentRouteSpecs = response["routes"][i];
+            //       var routeSpecs = new google.maps.DirectionsRoute({
+                     // bounds: currentRouteSpecs["bounds"],
+                     // copyrights: currentRouteSpecs["copyrights"],
+                     // legs: ,
+                     // overview_path: ,
+                     // overview_polyline: ,
+                     // warnings: currentRouteSpecs["warnings"],
+                     // waypoint_order: currentRouteSpecs["waypoint_order"]
+            //       });
+            //    }
+               
+            //    directionsDisplay.setDirections(response);
+            // });
+
+            //directionsDisplay.setDirections(response); // map route
          });
       } else {
          console.log(status);
@@ -216,34 +254,107 @@ mapRoute = function(map, directionsService, startPoint, destPoint) {
    });
 }
 
-shortenRoute = function(map, length, directions, callback) {
+shortenRoute = function(map, directionsDisplay, length, directions, callback) {
    var travelDistance = 0;
    var stepLength = 0;
-   var finalPoint;
-   for (var i = 0; i < directions["routes"][0]["legs"][0]["steps"].length; i++) {
-      //console.log("dist: " + directions["routes"][0]["legs"][0]["steps"][i]["distance"]);
-      stepLength = miles(directions["routes"][0]["legs"][0]["steps"][i]["distance"]["value"]);
-      if (travelDistance + stepLength > length) {
-         for (var j = 0; j < directions["routes"][0]["legs"][0]["steps"][i]["path"].length - 1; j++) {
-            travelDistance += distance(directions["routes"][0]["legs"][0]["steps"][i]["path"][j], directions["routes"][0]["legs"][0]["steps"][i]["path"][j + 1]);
-            if (travelDistance > length) {
-               finalPoint = new google.maps.LatLng(directions["routes"][0]["legs"][0]["steps"][i]["path"][j + 1].lat(), directions["routes"][0]["legs"][0]["steps"][i]["path"][j + 1].lng());
-               break;
+   // var steps = directions["routes"][0]["legs"][0]["steps"];
+   var routes = directions["routes"];
+   var finalPoints = []; // modified destinations for each route
+   var newSteps = []; // modified steps for each route
+   var newPaths = []; // modified overview paths for each route
+   var newDistances = [];
+   // var newLeg;
+   for (var r = 0; r < routes.length; r++) {
+      var steps = routes[r]["legs"][0]["steps"]; // TODO: check what the legs are?
+      var finalPoint; // modified destination for route r
+      var newStepSet = []; // modified steps for route r
+      var newPathSet = []; // modified overview path for route r
+      for (var i = 0; i < steps.length; i++) {
+         stepLength = miles(steps[i]["distance"]["value"]);
+         if (travelDistance + stepLength > length) {
+            stepLength = 0;
+            var newPath = [];
+            newPath.push(steps[i]["path"][0]);
+            for (var j = 0; j < steps[i]["path"].length - 1; j++) {
+               stepLength += miles(google.maps.geometry.spherical.computeDistanceBetween(steps[i]["path"][j], steps[i]["path"][j + 1]));
+               newPath.push(steps[i]["path"][j + 1]);
+               if (travelDistance + stepLength > length) {
+                  travelDistance += stepLength;
+                  finalPoint = new google.maps.LatLng(steps[i]["path"][j + 1].lat(), steps[i]["path"][j + 1].lng());
+                  break;
+               }
             }
+            newPathSet.concat(newPath);
+            newStepSet.push({
+               distance: {text: stepLength + " mi", value: meters(stepLength)},
+               end_location: finalPoint,
+               instructions: steps[i]["instructions"],
+               path: newPath,
+               start_location: steps[i]["start_location"],
+               travel_mode: steps[i]["travel_mode"]
+            });
+            break;
+         } else {
+            travelDistance += stepLength;
+            finalPoint = new google.maps.LatLng(steps[i]["end_point"].lat(), steps[i]["end_point"].lng());
+            newPathSet.concat(steps[i]["path"]);
+            newStepSet.push(steps[i]);
          }
-         break;
-      } else {
-         travelDistance += stepLength;
-         finalPoint = new google.maps.LatLng(directions["routes"][0]["legs"][0]["steps"][i]["end_point"].lat(), directions["routes"][0]["legs"][0]["steps"][i]["end_point"].lng());
       }
+      finalPoints.push(finalPoint);
+      newPaths.push(newPathSet);
+      newSteps.push(newStepSet);
+      newDistances.push(travelDistance);
    }
    // directions["route"][0]["steps"]
 
-   callback(map, finalPoint);
+   callback(map, directionsDisplay, {
+      finalPoints: finalPoints, 
+      newSteps: newSteps,
+      newDistances: newDistances,
+      newPaths: newPaths
+   });
 
-   return finalPoint;
+   return finalPoints;
+
+   // return {
+   //    finalPoints: finalPoints,
+   //    newSteps: newSteps
+   // };
 }
 
+drawRoute = function(directionsDisplay, finalPoint, newSteps, newDistance, newPath, response, routeNum) {
+   $.get('https://maps.googleapis.com/maps/api/geocode/json', {
+      latlng: finalPoint.lat() + "," + finalPoint.lng()
+   }, function(data) {
+      var currentRouteSpecs = response["routes"][routeNum];
+      var waypoints = response["geocoded_waypoints"];
+      waypoints[1] = data["results"][0];
+      var routes = []
+      routes.push({
+         bounds: currentRouteSpecs["bounds"],
+         copyrights: currentRouteSpecs["copyrights"],
+         legs: [{
+            distance: {text: newDistance + " mi", value: meters(newDistance)},
+            end_address: data["results"][0]["formatted_address"],
+            end_location: finalPoint,
+            start_address: currentRouteSpecs["start_address"],
+            start_location: currentRouteSpecs["start_location"],
+            steps: newSteps
+         }],
+         overview_path: newPath,
+         //overview_polyline: ,
+         warnings: currentRouteSpecs["warnings"],
+         waypoint_order: currentRouteSpecs["waypoint_order"]
+      });
+
+      directionsDisplay.setDirections({
+         geocoded_waypoints: waypoints,
+         routes: routes,
+         request: response["request"]
+      });
+   });
+}
 
 
 
