@@ -73,6 +73,10 @@ miles = function(meters) {
    return meters * 0.000621371;
 }
 
+comparePoints = function(firstPoint, pointA, pointB) {
+   return google.maps.geometry.spherical.computeDistanceBetween(firstPoint, pointA) - google.maps.geometry.spherical.computeDistanceBetween(firstPoint, pointB);
+}
+
 updateMap = function() {
    startAddress = document.getElementById("address").value;
    runLength = document.getElementById("mileage").value;
@@ -132,12 +136,10 @@ updateDrawing = function(startCoordinates) {
       key: apiKeys["roads"]
    }, function(data) {
       for (var i = 0; i < data["snappedPoints"].length; i++) {
-         var newCircPoint = {};
-         newCircPoint["lat"] = data["snappedPoints"][i]["location"]["latitude"];
-         newCircPoint["lng"] = data["snappedPoints"][i]["location"]["longitude"];
+         var newCircPoint = new google.maps.LatLng(data["snappedPoints"][i]["location"]["latitude"], data["snappedPoints"][i]["location"]["longitude"]);
          circPointsNum = circumferencePoints.length;
          if (circPointsNum > 0) {
-            if (circumferencePoints[circPointsNum - 1]["lat"] != newCircPoint["lat"] || circumferencePoints[circPointsNum - 1]["lng"] != newCircPoint["lng"]) {
+            if (circumferencePoints[circPointsNum - 1].lat() != newCircPoint.lat() || circumferencePoints[circPointsNum - 1].lng() != newCircPoint.lng()) {
                circumferencePoints.push(newCircPoint);
             }
          } else {
@@ -146,7 +148,7 @@ updateDrawing = function(startCoordinates) {
       }
       circPointsNum = circumferencePoints.length;
       if (circPointsNum > 1) {
-         if (circumferencePoints[0]["lat"] == circumferencePoints[circPointsNum - 1]["lat"] && circumferencePoints[0]["lng"] == circumferencePoints[circPointsNum - 1]["lng"]) {
+         if (circumferencePoints[0].lat() == circumferencePoints[circPointsNum - 1].lat() && circumferencePoints[0].lng() == circumferencePoints[circPointsNum - 1].lng()) {
             circumferencePoints.pop();
          }
       }
@@ -203,50 +205,40 @@ mapRoute = function(map, directionsService, startPoint, destPoint) {
          //directionsDisplay.setDirections(response);
 
          shortenRoute(map, directionsDisplay, radius, response, function(map, directionsDisplay, adjustedInfo) {
-            var finalPoints = adjustedInfo["finalPoints"];
-            var newSteps = adjustedInfo["newSteps"];
-            var newDistances = adjustedInfo["newDistances"];
-            var newPaths = adjustedInfo["newPaths"];
-            for (var i = 0; i < finalPoints.length; i++) { // if there are multiple routes to the same location
+            // var finalPoints = adjustedInfo["finalPoints"];
+            // var newSteps = adjustedInfo["newSteps"];
+            // var newDistances = adjustedInfo["newDistances"];
+            // var newPaths = adjustedInfo["newPaths"];
+
+            // for (var i = 0; i < finalPoints.length; i++) { // if there are multiple routes to the same location
+            //    if (i > 0 && finalPoints[i].lat() == finalPoints[i-1].lat() && finalPoints[i].lng() == finalPoints[i-1].lng()) {
+            //       continue;
+            //    }
+            //    new google.maps.Marker({
+            //       position: new google.maps.LatLng(finalPoints[i].lat(), finalPoints[i].lng()),
+            //       icon: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png',
+            //       map: map
+            //    });
+               
+            //    drawRoute(directionsDisplay, finalPoints[i], newSteps[i], newDistances[i], newPaths[i], response, i);
+            // }
+            for (var i = 0; i < adjustedInfo.length; i++) { // if there are multiple routes to the same location
+               var finalPoint = adjustedInfo[i]["finalPoint"];
+               var newSteps = adjustedInfo[i]["newSteps"];
+               var newDistance = adjustedInfo[i]["newDistance"];
+               var newPath = adjustedInfo[i]["newPath"];
+               if (i > 0 && finalPoint.lat() == adjustedInfo[i-1]["finalPoint"].lat() && finalPoint.lng() == adjustedInfo[i-1]["finalPoint"].lng()) {
+                  continue;
+               }
                new google.maps.Marker({
-                  position: new google.maps.LatLng(finalPoints[i].lat(), finalPoints[i].lng()),
+                  position: new google.maps.LatLng(finalPoint.lat(), finalPoint.lng()),
                   icon: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png',
                   map: map
                });
                
-               drawRoute(directionsDisplay, finalPoints[i], newSteps[i], newDistances[i], newPaths[i], response, i);
+               // drawRoute(directionsDisplay, finalPoint, newSteps, newDistance, newPath, response, i);
+               drawRoute(directionsDisplay, adjustedInfo[i], response, i);
             }
-
-            //var newResponse;
-
-            // $.get('https://maps.googleapis.com/maps/api/geocode/json', {
-            //    latlng: finalPoint.lat() + "," + finalPoint.lng()
-            //    //key: apiKeys["geocoding"] key unnecessary ??
-            // }, function(data) {
-            //    console.log(data);
-            //    var waypoints = response["geocoded_waypoints"];
-            //    waypoints[1] = new google.maps.DirectionsGeocodedWaypoint({
-            //       place_id: data["results"][0]["place_id"],
-            //       types: data["results"][0]["types"]
-            //    });
-
-            //    for (var i = 0; i < response["routes"].length; i++) {
-            //       var currentRouteSpecs = response["routes"][i];
-            //       var routeSpecs = new google.maps.DirectionsRoute({
-                     // bounds: currentRouteSpecs["bounds"],
-                     // copyrights: currentRouteSpecs["copyrights"],
-                     // legs: ,
-                     // overview_path: ,
-                     // overview_polyline: ,
-                     // warnings: currentRouteSpecs["warnings"],
-                     // waypoint_order: currentRouteSpecs["waypoint_order"]
-            //       });
-            //    }
-               
-            //    directionsDisplay.setDirections(response);
-            // });
-
-            //directionsDisplay.setDirections(response); // map route
          });
       } else {
          console.log(status);
@@ -255,6 +247,8 @@ mapRoute = function(map, directionsService, startPoint, destPoint) {
 }
 
 shortenRoute = function(map, directionsDisplay, length, directions, callback) {
+   var returnArray = [];
+
    var travelDistance = 0;
    var stepLength = 0;
    // var steps = directions["routes"][0]["legs"][0]["steps"];
@@ -301,21 +295,31 @@ shortenRoute = function(map, directionsDisplay, length, directions, callback) {
             newStepSet.push(steps[i]);
          }
       }
-      finalPoints.push(finalPoint);
-      newPaths.push(newPathSet);
-      newSteps.push(newStepSet);
-      newDistances.push(travelDistance);
+      // finalPoints.push(finalPoint);
+      // newPaths.push(newPathSet);
+      // newSteps.push(newStepSet);
+      // newDistances.push(travelDistance);
+
+      returnArray.push({
+         finalPoint: finalPoint,
+         newPath: newPathSet,
+         newSteps: newStepSet,
+         newDistance: travelDistance
+      });
    }
    // directions["route"][0]["steps"]
 
-   callback(map, directionsDisplay, {
-      finalPoints: finalPoints, 
-      newSteps: newSteps,
-      newDistances: newDistances,
-      newPaths: newPaths
-   });
+   // callback(map, directionsDisplay, {
+   //    finalPoints: finalPoints, 
+   //    newSteps: newSteps,
+   //    newDistances: newDistances,
+   //    newPaths: newPaths
+   // });
 
-   return finalPoints;
+   callback(map, directionsDisplay, returnArray);
+
+   // return finalPoints;
+   return returnArray;
 
    // return {
    //    finalPoints: finalPoints,
@@ -323,7 +327,13 @@ shortenRoute = function(map, directionsDisplay, length, directions, callback) {
    // };
 }
 
-drawRoute = function(directionsDisplay, finalPoint, newSteps, newDistance, newPath, response, routeNum) {
+// drawRoute = function(directionsDisplay, finalPoint, newSteps, newDistance, newPath, response, routeNum) {
+drawRoute = function(directionsDisplay, routeInfo, response, routeNum) {
+   var finalPoint = routeInfo["finalPoint"];
+   var newSteps = routeInfo["newSteps"];
+   var newDistance = routeInfo["newDistance"];
+   var newPath = routeInfo["newPath"];
+
    $.get('https://maps.googleapis.com/maps/api/geocode/json', {
       latlng: finalPoint.lat() + "," + finalPoint.lng()
    }, function(data) {
