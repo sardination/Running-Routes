@@ -163,6 +163,7 @@ updateDrawing = function(startCoordinates) {
       //       map: map
       //    });
       // }
+      console.log("setEnabled");
       document.getElementById("displayRoutesButton").disabled = false;
       $('#displayRoutesButton').on('click', function() {
          showRoutes(map, startPoint, circumferencePoints);
@@ -225,17 +226,29 @@ mapRoute = function(map, directionsService, startPoint, destPoint) {
                      google.maps.geometry.spherical.computeDistanceBetween(finalPoint, possibleRoutes[0]["finalPoint"]) > 5)) {
 
                   possibleRoutes.push(adjustedInfo[i]);
-                  new google.maps.Marker({
+                  var destMarker = new google.maps.Marker({
                      position: new google.maps.LatLng(finalPoint.lat(), finalPoint.lng()),
                      icon: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png',
                      map: map
                   });
-                  drawRoute(directionsDisplay, adjustedInfo[i], response, i);
+                  drawRoute(directionsDisplay, adjustedInfo[i], response, i, function() {
+                     addListeners(destMarker, adjustedInfo[i]);
+                  });
                }
             }
          });
       } else {
          console.log(status);
+      }
+   });
+}
+
+addListeners = function(destMarker, info) {
+   destMarker.addListener('click', function() {
+      var directionsBox = document.getElementById("directionsBox").getElementsByTagName("ol")[0];
+      directionsBox.innerHTML = "Directions:";
+      for (var i = 0; i < info["newSteps"].length; i++) {
+         directionsBox.innerHTML += "<li>" + info["newSteps"][i]["instructions"].replace("\n", "<\li>");
       }
    });
 }
@@ -318,7 +331,7 @@ shortenRoute = function(map, directionsDisplay, length, directions, callback) {
 }
 
 // drawRoute = function(directionsDisplay, finalPoint, newSteps, newDistance, newPath, response, routeNum) {
-drawRoute = function(directionsDisplay, routeInfo, response, routeNum) {
+drawRoute = function(directionsDisplay, routeInfo, response, routeNum, callback) {
    var finalPoint = routeInfo["finalPoint"];
    var newSteps = routeInfo["newSteps"];
    var newDistance = routeInfo["newDistance"];
@@ -356,6 +369,8 @@ drawRoute = function(directionsDisplay, routeInfo, response, routeNum) {
          request: response["request"]
       });
    });
+
+   callback();
 }
 
 
