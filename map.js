@@ -179,7 +179,7 @@ showRoutes = function(map, startPoint, circumferencePoints) {
    var iters = 1;
 
    //circumferencePoints.length
-   for (var index = 0; index < circumferencePoints.length; index += iters) {
+   for (var index = 0; index < 3; index += iters) {
       mapRoutes(map, directionsService, startPoint, circumferencePoints, index, iters, pause);
       pause += 1000; // add one second pause (only `iters` requests per second) TODO: update to retry failures
       // TODO: allow breaking out of this loop
@@ -248,7 +248,8 @@ addListeners = function(destMarker, info) {
       var directionsBox = document.getElementById("directionsBox").getElementsByTagName("ol")[0];
       directionsBox.innerHTML = "Directions:";
       for (var i = 0; i < info["newSteps"].length; i++) {
-         directionsBox.innerHTML += "<li>" + info["newSteps"][i]["instructions"].replace("\n", "<\li>");
+         console.log(info["newSteps"][i]);
+         directionsBox.innerHTML += "<li>" + info["newSteps"][i]["instructions"] + " for " + info["newSteps"][i]["distance"]["text"];
       }
    });
 }
