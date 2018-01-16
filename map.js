@@ -63,6 +63,8 @@ var clickedMarker = undefined;
 var selectedRouteInfo = undefined;
 var clickedRouteInfo = undefined;
 
+var currentMap = undefined;
+
 document.getElementById("submitButton").disabled = true;
 document.getElementById("displayRoutesButton").disabled = true;
 //document.getElementById("cancelDisplayRoutesButton").disabled = true;
@@ -92,8 +94,19 @@ comparePoints = function(firstPoint, pointA, pointB) {
 }
 
 updateMap = function() {
+   startAddress = "";
+   startCoordinates = {};
+   runLength = 0;
+   radius = 0;
    checkedRoutes = 0;
+   possibleRoutes = [];
+   clickedMarker = undefined;
+   selectedRouteInfo = undefined;
+   clickedRouteInfo = undefined;
+
    document.getElementById("loadingLabelStart").innerHTML = "";
+   document.getElementById("loadingLabelEnd").innerHTML = "";
+
    startAddress = document.getElementById("address").value;
    runLength = document.getElementById("mileage").value;
    // get coordinates
@@ -118,6 +131,8 @@ updateDrawing = function(startCoordinates) {
    };
 
    var map = new google.maps.Map(document.getElementById("map"), mapOpt);
+
+   currentMap = map
 
    // Draw the circle
    // new google.maps.Circle({
@@ -193,7 +208,9 @@ showRoutes = function(map, startPoint, circumferencePoints) {
 
    //circumferencePoints.length
    for (var index = 0; index < circumferencePoints.length; index += iters) {
-      mapRoutes(map, directionsService, startPoint, circumferencePoints, index, iters, pause);
+      if (map == currentMap) {
+         mapRoutes(map, directionsService, startPoint, circumferencePoints, index, iters, pause);
+      }
       pause += 1000; // add one second pause (only `iters` requests per second) TODO: update to retry failures
       // TODO: allow breaking out of this loop
    }
@@ -203,7 +220,9 @@ mapRoutes = function(map, directionsService, startPoint, circumferencePoints, st
    document.getElementById("loadingLabelEnd").innerHTML = "/" + circumferencePoints.length + " ROUTES CHECKED";
    setTimeout(function() {
       for (var i = startIndex; i < min(startIndex + iters, circumferencePoints.length); i++) {
-         mapRoute(map, directionsService, startPoint, circumferencePoints[i]);
+         if (map == currentMap) {
+            mapRoute(map, directionsService, startPoint, circumferencePoints[i]);
+         }
       }
    }, pause);
 }
@@ -229,35 +248,40 @@ mapRoute = function(map, directionsService, startPoint, destPoint) {
          });
          directionsDisplay.setMap(map);
 
-         shortenRoute(map, directionsDisplay, radius, response, function(map, directionsDisplays, adjustedInfo) {
-            for (var i = 0; i < adjustedInfo.length; i++) { // if there are multiple routes to the same location
-               var finalPoint = adjustedInfo[i]["finalPoint"];
-               var newSteps = adjustedInfo[i]["newSteps"];
-               var newDistance = adjustedInfo[i]["newDistance"];
-               var newPath = adjustedInfo[i]["newPath"];
-               if (i > 0 && finalPoint.lat() == adjustedInfo[i-1]["finalPoint"].lat() && finalPoint.lng() == adjustedInfo[i-1]["finalPoint"].lng()) {
-                  continue;
-               }
+         if (map == currentMap) {
+            shortenRoute(map, directionsDisplay, radius, response, function(map, directionsDisplays, adjustedInfo) {
+               for (var i = 0; i < adjustedInfo.length; i++) { // if there are multiple routes to the same location
+                  var finalPoint = adjustedInfo[i]["finalPoint"];
+                  var newSteps = adjustedInfo[i]["newSteps"];
+                  var newDistance = adjustedInfo[i]["newDistance"];
+                  var newPath = adjustedInfo[i]["newPath"];
+                  if (i > 0 && finalPoint.lat() == adjustedInfo[i-1]["finalPoint"].lat() && finalPoint.lng() == adjustedInfo[i-1]["finalPoint"].lng()) {
+                     continue;
+                  }
                
-               // drawRoute(directionsDisplay, finalPoint, newSteps, newDistance, newPath, response, i);
-               if (possibleRoutes.length == 0 || 
-                  (google.maps.geometry.spherical.computeDistanceBetween(finalPoint, possibleRoutes[possibleRoutes.length - 1]["finalPoint"]) > 5 && 
-                     google.maps.geometry.spherical.computeDistanceBetween(finalPoint, possibleRoutes[0]["finalPoint"]) > 5)) {
 
-                  possibleRoutes.push(adjustedInfo[i]);
-                  var destMarker = new google.maps.Marker({
-                     position: new google.maps.LatLng(finalPoint.lat(), finalPoint.lng()),
-                     icon: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',
-                     map: map
-                  });
-                  drawRoute(directionsDisplays[i], adjustedInfo[i], response, i, function(info) {
-                     addListeners(map, destMarker, info);
-                  });
+                  // drawRoute(directionsDisplay, finalPoint, newSteps, newDistance, newPath, response, i);
+                  if (map == currentMap) {
+                     if (possibleRoutes.length == 0 || 
+                        (google.maps.geometry.spherical.computeDistanceBetween(finalPoint, possibleRoutes[possibleRoutes.length - 1]["finalPoint"]) > 5 && 
+                           google.maps.geometry.spherical.computeDistanceBetween(finalPoint, possibleRoutes[0]["finalPoint"]) > 5)) {
+
+                        possibleRoutes.push(adjustedInfo[i]);
+                        var destMarker = new google.maps.Marker({
+                           position: new google.maps.LatLng(finalPoint.lat(), finalPoint.lng()),
+                           icon: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',
+                           map: map
+                        });
+                        drawRoute(directionsDisplays[i], adjustedInfo[i], response, i, function(info) {
+                           addListeners(map, destMarker, info);
+                        });
+                     }
+                     checkedRoutes++;
+                     document.getElementById("loadingLabelStart").innerHTML = checkedRoutes;
+                  }
                }
-               checkedRoutes++;
-               document.getElementById("loadingLabelStart").innerHTML = checkedRoutes;
-            }
-         });
+            });
+         }
       } else {
          console.log(status);
       }
