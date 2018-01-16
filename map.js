@@ -54,11 +54,14 @@ var startCoordinates = {};
 var runLength = 0; // miles
 var radius = 0;
 
+var numRoutesToCheck = 100;
+var checkedRoutes = 0;
+
 var possibleRoutes = [];
 
 document.getElementById("submitButton").disabled = true;
 document.getElementById("displayRoutesButton").disabled = true;
-document.getElementById("cancelDisplayRoutesButton").disabled = true;
+//document.getElementById("cancelDisplayRoutesButton").disabled = true;
 
 $.getJSON("api_keys.json", function(data) {
    $.each(data, function(key, val) {
@@ -80,6 +83,8 @@ comparePoints = function(firstPoint, pointA, pointB) {
 }
 
 updateMap = function() {
+   checkedRoutes = 0;
+   document.getElementById("loadingLabelStart").innerHTML = "";
    startAddress = document.getElementById("address").value;
    runLength = document.getElementById("mileage").value;
    // get coordinates
@@ -123,7 +128,7 @@ updateDrawing = function(startCoordinates) {
    // pick evenly spaced points for nearest roads
    var points = [];
    var pointsParameter = "";
-   for (var degree = 0; degree < 360; degree += 3.6) {
+   for (var degree = 0; degree < 360; degree += 360/numRoutesToCheck) {
       var dest = startPoint.destinationPoint(degree, radius)
       points.push(dest);
       pointsParameter += dest.lat() + "," + dest.lng() + "|";
@@ -163,11 +168,10 @@ updateDrawing = function(startCoordinates) {
       //       map: map
       //    });
       // }
-      console.log("setEnabled");
       document.getElementById("displayRoutesButton").disabled = false;
       $('#displayRoutesButton').on('click', function() {
          showRoutes(map, startPoint, circumferencePoints);
-         document.getElementById("cancelDisplayRoutesButton").disabled = false;
+         //document.getElementById("cancelDisplayRoutesButton").disabled = false;
       });
    });
 }
@@ -179,7 +183,7 @@ showRoutes = function(map, startPoint, circumferencePoints) {
    var iters = 1;
 
    //circumferencePoints.length
-   for (var index = 0; index < 3; index += iters) {
+   for (var index = 0; index < circumferencePoints.length; index += iters) {
       mapRoutes(map, directionsService, startPoint, circumferencePoints, index, iters, pause);
       pause += 1000; // add one second pause (only `iters` requests per second) TODO: update to retry failures
       // TODO: allow breaking out of this loop
@@ -187,6 +191,7 @@ showRoutes = function(map, startPoint, circumferencePoints) {
 }
 
 mapRoutes = function(map, directionsService, startPoint, circumferencePoints, startIndex, iters, pause) {
+   document.getElementById("loadingLabelEnd").innerHTML = "/" + circumferencePoints.length + " ROUTES CHECKED";
    setTimeout(function() {
       for (var i = startIndex; i < min(startIndex + iters, circumferencePoints.length); i++) {
          mapRoute(map, directionsService, startPoint, circumferencePoints[i]);
@@ -206,11 +211,8 @@ mapRoute = function(map, directionsService, startPoint, destPoint) {
             preserveViewport: true
          });
          directionsDisplay.setMap(map);
-         //directionsDisplay.setDirections(response);
 
          shortenRoute(map, directionsDisplay, radius, response, function(map, directionsDisplay, adjustedInfo) {
-            //possibleRoutes = possibleRoutes.concat(adjustedInfo);
-            //console.log(possibleRoutes);
             for (var i = 0; i < adjustedInfo.length; i++) { // if there are multiple routes to the same location
                var finalPoint = adjustedInfo[i]["finalPoint"];
                var newSteps = adjustedInfo[i]["newSteps"];
@@ -231,10 +233,12 @@ mapRoute = function(map, directionsService, startPoint, destPoint) {
                      icon: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png',
                      map: map
                   });
-                  drawRoute(directionsDisplay, adjustedInfo[i], response, i, function() {
-                     addListeners(destMarker, adjustedInfo[i]);
+                  drawRoute(directionsDisplay, adjustedInfo[i], response, i, function(info) {
+                     addListeners(map, destMarker, info);
                   });
                }
+               checkedRoutes++;
+               document.getElementById("loadingLabelStart").innerHTML = checkedRoutes;
             }
          });
       } else {
@@ -243,14 +247,25 @@ mapRoute = function(map, directionsService, startPoint, destPoint) {
    });
 }
 
-addListeners = function(destMarker, info) {
+addListeners = function(map, destMarker, info) {   
    destMarker.addListener('click', function() {
       var directionsBox = document.getElementById("directionsBox").getElementsByTagName("ol")[0];
-      directionsBox.innerHTML = "Directions:";
+      directionsBox.innerHTML = "Directions: " + info["newDistance"] + " miles one-way, <b>" + info["newDistance"] * 2 + " miles</b> round-trip";
       for (var i = 0; i < info["newSteps"].length; i++) {
-         console.log(info["newSteps"][i]);
          directionsBox.innerHTML += "<li>" + info["newSteps"][i]["instructions"] + " for " + info["newSteps"][i]["distance"]["text"];
       }
+   });
+
+   destMarker.addListener('mouseover', function() {
+      var finalAddress = info["directionsDisplay"]["directions"]["geocoded_waypoints"][1]["formatted_address"];
+      var infoWindow = new google.maps.InfoWindow({
+         content: finalAddress + "<br \> <b>" + info["newDistance"] * 2 + " miles round-trip"
+      });
+      infoWindow.open(map, destMarker);
+
+      destMarker.addListener('mouseout', function() {
+         infoWindow.close(map, destMarker);
+      });
    });
 }
 
@@ -288,7 +303,7 @@ shortenRoute = function(map, directionsDisplay, length, directions, callback) {
             }
             newPathSet = newPathSet.concat(newPath);
             newStepSet.push({
-               distance: {text: stepLength + " mi", value: meters(stepLength)},
+               distance: {text: Math.round(stepLength * 100)/100 + " mi", value: meters(stepLength)},
                end_location: finalPoint,
                instructions: steps[i]["instructions"],
                path: newPath,
@@ -313,7 +328,7 @@ shortenRoute = function(map, directionsDisplay, length, directions, callback) {
          finalPoint: finalPoint,
          newPath: newPathSet,
          newSteps: newStepSet,
-         newDistance: travelDistance,
+         newDistance: Math.round(travelDistance * 100)/100,
       });
    }
    // directions["route"][0]["steps"]
@@ -359,7 +374,6 @@ drawRoute = function(directionsDisplay, routeInfo, response, routeNum, callback)
             steps: newSteps
          }],
          overview_path: newPath,
-         //overview_polyline: ,
          warnings: currentRouteSpecs["warnings"],
          waypoint_order: currentRouteSpecs["waypoint_order"]
       });
@@ -369,9 +383,9 @@ drawRoute = function(directionsDisplay, routeInfo, response, routeNum, callback)
          routes: routes,
          request: response["request"]
       });
-   });
 
-   callback();
+      callback(routeInfo);
+   });
 }
 
 
