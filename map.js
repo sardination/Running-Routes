@@ -74,6 +74,11 @@ $.getJSON("api_keys.json", function(data) {
    document.getElementById("submitButton").disabled = false;
 });
 
+$("#info_form").submit(function(e) {
+    e.preventDefault();
+    updateMap();
+});
+
 meters = function(miles) {
    return 1609.34 * miles;
 }
