@@ -247,7 +247,7 @@ mapRoute = function(map, directionsService, startPoint, destPoint) {
                   possibleRoutes.push(adjustedInfo[i]);
                   var destMarker = new google.maps.Marker({
                      position: new google.maps.LatLng(finalPoint.lat(), finalPoint.lng()),
-                     icon: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png',
+                     icon: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',
                      map: map
                   });
                   drawRoute(directionsDisplays[i], adjustedInfo[i], response, i, function(info) {
