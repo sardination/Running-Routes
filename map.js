@@ -59,6 +59,10 @@ var checkedRoutes = 0;
 
 var possibleRoutes = [];
 
+var clickedMarker = undefined;
+var selectedRouteInfo = undefined;
+var clickedRouteInfo = undefined;
+
 document.getElementById("submitButton").disabled = true;
 document.getElementById("displayRoutesButton").disabled = true;
 //document.getElementById("cancelDisplayRoutesButton").disabled = true;
@@ -210,9 +214,17 @@ mapRoute = function(map, directionsService, startPoint, destPoint) {
             suppressMarkers: true, 
             preserveViewport: true
          });
+         directionsDisplay.setOptions({
+            polylineOptions: {
+             strokeColor: '#0000FF',
+             strokeOpacity: 0.6,
+             strokeWeight: 6,
+             zIndex: 1
+            }
+         });
          directionsDisplay.setMap(map);
 
-         shortenRoute(map, directionsDisplay, radius, response, function(map, directionsDisplay, adjustedInfo) {
+         shortenRoute(map, directionsDisplay, radius, response, function(map, directionsDisplays, adjustedInfo) {
             for (var i = 0; i < adjustedInfo.length; i++) { // if there are multiple routes to the same location
                var finalPoint = adjustedInfo[i]["finalPoint"];
                var newSteps = adjustedInfo[i]["newSteps"];
@@ -233,7 +245,7 @@ mapRoute = function(map, directionsService, startPoint, destPoint) {
                      icon: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png',
                      map: map
                   });
-                  drawRoute(directionsDisplay, adjustedInfo[i], response, i, function(info) {
+                  drawRoute(directionsDisplays[i], adjustedInfo[i], response, i, function(info) {
                      addListeners(map, destMarker, info);
                   });
                }
@@ -247,26 +259,98 @@ mapRoute = function(map, directionsService, startPoint, destPoint) {
    });
 }
 
-addListeners = function(map, destMarker, info) {   
+addListeners = function(map, destMarker, info) {
    destMarker.addListener('click', function() {
-      var directionsBox = document.getElementById("directionsBox").getElementsByTagName("ol")[0];
-      directionsBox.innerHTML = "Directions: " + info["newDistance"] + " miles one-way, <b>" + info["newDistance"] * 2 + " miles</b> round-trip";
-      for (var i = 0; i < info["newSteps"].length; i++) {
-         directionsBox.innerHTML += "<li>" + info["newSteps"][i]["instructions"] + " for " + info["newSteps"][i]["distance"]["text"];
+      selectedRouteInfo = clickedRouteInfo;
+      clickedRouteInfo = undefined;
+      unhighlightRoute(map);
+
+      if (clickedMarker != destMarker) { // if marker is clicked again, only unhighlight
+         clickedMarker = destMarker;
+
+         var directionsBox = document.getElementById("directionsBox").getElementsByTagName("ol")[0];
+         directionsBox.innerHTML = "Directions: " + info["newDistance"] + " miles one-way, <b>" + info["newDistance"] * 2 + " miles</b> round-trip";
+         for (var i = 0; i < info["newSteps"].length; i++) {
+            directionsBox.innerHTML += "<li>" + info["newSteps"][i]["instructions"] + " for " + info["newSteps"][i]["distance"]["text"];
+         }
+
+         highlightRoute(map, info, '#00FF00');
+         clickedRouteInfo = info;
+      } else {
+         document.getElementById("directionsBox").getElementsByTagName("ol")[0].innerHTML = "";
+         clickedMarker = undefined;
+         selectedRouteInfo = undefined;
       }
    });
 
    destMarker.addListener('mouseover', function() {
       var finalAddress = info["directionsDisplay"]["directions"]["geocoded_waypoints"][1]["formatted_address"];
       var infoWindow = new google.maps.InfoWindow({
-         content: finalAddress + "<br \> <b>" + info["newDistance"] * 2 + " miles round-trip"
+         content: finalAddress + "<br \> <b>" + info["newDistance"] * 2 + " miles round-trip",
+         disableAutoPan: true
       });
       infoWindow.open(map, destMarker);
 
       destMarker.addListener('mouseout', function() {
          infoWindow.close(map, destMarker);
+         if (clickedMarker != destMarker) {
+            unhighlightRoute(map);
+         }
       });
+
+      if (clickedMarker != destMarker) {
+         highlightRoute(map, info, '#FF0000');
+      }
    });
+}
+
+highlightRoute = function(map, routeInfo, color) {
+   //unhighlightRoute(map);
+
+   routeInfo["directionsDisplay"].setMap(null);
+   routeInfo["directionsDisplay"].setOptions({
+      polylineOptions: {
+         strokeColor: color,
+         strokeOpacity: 1.0,
+         strokeWeight: 6,
+         zIndex: 2
+      }
+   });
+   routeInfo["directionsDisplay"].setMap(map);
+   selectedRouteInfo = routeInfo;
+
+   // // set previous selected route back to blue
+   // if (selectedRoutePolyline != undefined) {
+   //    selectedRoutePolyline.setMap(null);
+   // }
+
+   // // set route red
+   // selectedRoutePolyline = new google.maps.Polyline({
+   //     path: routeInfo["directionsDisplay"]["directions"]["routes"][0]["overview_path"],
+   //     geodesic: true,
+   //     strokeColor: '#FF0000',
+   //     strokeOpacity: 1.0,
+   //     strokeWeight: 6,
+   //     zIndex: 2
+   //   });
+
+   // selectedRoutePolyline.setMap(map);
+}
+
+unhighlightRoute = function(map) {
+   if (selectedRouteInfo != undefined) {
+      // unhighlight old route
+      selectedRouteInfo["directionsDisplay"].setMap(null);
+      selectedRouteInfo["directionsDisplay"].setOptions({
+         polylineOptions: {
+            strokeColor: '#0000FF',
+            strokeOpacity: 0.6,
+            strokeWeight: 6,
+            zIndex: 1
+         }
+      });
+      selectedRouteInfo["directionsDisplay"].setMap(map);
+   }
 }
 
 shortenRoute = function(map, directionsDisplay, length, directions, callback) {
@@ -280,6 +364,8 @@ shortenRoute = function(map, directionsDisplay, length, directions, callback) {
    var newSteps = []; // modified steps for each route
    var newPaths = []; // modified overview paths for each route
    var newDistances = [];
+
+   var directionsDisplays = [directionsDisplay];
    // var newLeg;
    for (var r = 0; r < routes.length; r++) {
       var steps = routes[r]["legs"][0]["steps"]; // TODO: check what the legs are?
@@ -323,8 +409,15 @@ shortenRoute = function(map, directionsDisplay, length, directions, callback) {
       // newSteps.push(newStepSet);
       // newDistances.push(travelDistance);
 
+      if (r > 0) {
+         directionsDisplays.push(new google.maps.DirectionsRenderer({
+            suppressMarkers: true, 
+            preserveViewport: true
+         }));
+      }
+
       returnArray.push({
-         directionsDisplay: directionsDisplay,
+         directionsDisplay: directionsDisplays[r],
          finalPoint: finalPoint,
          newPath: newPathSet,
          newSteps: newStepSet,
@@ -340,7 +433,7 @@ shortenRoute = function(map, directionsDisplay, length, directions, callback) {
    //    newPaths: newPaths
    // });
 
-   callback(map, directionsDisplay, returnArray);
+   callback(map, directionsDisplays, returnArray);
 
    return returnArray;
 
