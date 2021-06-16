@@ -111,8 +111,8 @@ updateMap = function() {
    runLength = document.getElementById("mileage").value;
    // get coordinates
    $.get('https://maps.googleapis.com/maps/api/geocode/json', {
-      address: startAddress
-      //key: apiKeys["geocoding"] key unnecessary ??
+      address: startAddress,
+      key: apiKeys["geocoding"]
    }, function(data) {
       startCoordinates["lat"] = data["results"][0]["geometry"]["location"]["lat"];
       startCoordinates["lng"] = data["results"][0]["geometry"]["location"]["lng"];
